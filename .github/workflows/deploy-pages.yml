@@ -34,9 +34,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:github
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_URL: https://twxdkztihnwjvcbtycyh.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ZOu8LcSVM6hdX8POlnr4zQ_fIF4V8vb
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: github-dist
