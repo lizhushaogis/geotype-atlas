@@ -51,4 +51,9 @@ radial-gradient(circle at 88% 78%,rgba(231,89,63,.22),transparent 30%),var(--ink
 .question-card h2{line-height:1.45;letter-spacing:.025em;margin:40px auto 76px;max-width:760px}
 .slider-labels{line-height:1.75}.quiet-note{margin-top:24px}
 @media(max-width:560px){.hero h1{line-height:1.18;letter-spacing:.01em;margin-bottom:30px}.hero h1 em{letter-spacing:.025em;margin-top:.12em}.question-card{padding-top:62px}.question-meta{font-size:11px;padding:7px 11px;max-width:88%;text-align:center}.question-card h2{line-height:1.5;letter-spacing:.015em;margin-top:34px}}
+/* Five-position slider labels */
+.ticks.ticks-five button{font-size:12px;line-height:1.35;font-weight:700}
+.ticks.ticks-five button:nth-child(2),.ticks.ticks-five button:nth-child(4){font-size:18px;font-weight:400}
+.ticks.ticks-five button:nth-child(3){font-size:12px;font-weight:700}
+@media(max-width:560px){.ticks.ticks-five button{font-size:10px}.ticks.ticks-five button:nth-child(2),.ticks.ticks-five button:nth-child(4){font-size:16px}.ticks.ticks-five button:nth-child(3){font-size:10px}}
 
