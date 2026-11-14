@@ -12,7 +12,7 @@ create table if not exists public.submissions (
   created_at timestamptz not null default now(),
   constraint submissions_time_order check (completed_at >= started_at),
   constraint submissions_duration_nonnegative check (total_duration_ms >= 0),
-  constraint submissions_result_code check (result_code ~ '^[RH][LA][CO][TG]$'),
+  constraint submissions_result_code check (result_code ~ '^[a-z]{3,16}$' or result_code ~ '^[RH][LA][CO][TG]$'),
   constraint submissions_answers_object check (jsonb_typeof(answers) = 'object'),
   constraint submissions_times_object check (jsonb_typeof(question_times) = 'object'),
   constraint submissions_scores_object check (jsonb_typeof(axis_scores) = 'object'),
@@ -44,3 +44,4 @@ create policy "anonymous visitors may submit once"
 
 comment on table public.submissions is
   'Anonymous GEO/TYPE quiz responses. Client roles can insert but cannot select, update, or delete.';
+
