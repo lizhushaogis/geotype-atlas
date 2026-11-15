@@ -43,13 +43,22 @@ function centerLabel(axis: Axis, value: number) { const meta = axisMeta[axis]; r
 function MiniAvatar({ type, large = false }: { type: GeoType; large?: boolean }) { const x = (type.portrait % 4) * 33.333; const y = Math.floor(type.portrait / 4) * 33.333; return <div className={`avatar ${large ? "avatar-large" : ""}`} style={{ backgroundPosition: `${x}% ${y}%` }}><i>{type.english}</i></div>; }
 
 type SubmissionPayload = { sessionId: string; startedAt: string; completedAt: string; answers: Record<number, number>; questionTimesMs: Record<number, number>; resultCode: string; axisScores: Scores };
-function submitResponse(payload: SubmissionPayload) {
+const PENDING_SUBMISSION_KEY = "geotype.pending-submission";
+async function submitResponse(payload: SubmissionPayload) {
   const config = window as Window & { GEOTYPE_SUBMISSION_ENDPOINT?: string; GEOTYPE_SUPABASE_URL?: string; GEOTYPE_SUPABASE_PUBLISHABLE_KEY?: string };
   if (config.GEOTYPE_SUPABASE_URL && config.GEOTYPE_SUPABASE_PUBLISHABLE_KEY) {
     const completed = new Date(payload.completedAt).getTime(); const started = new Date(payload.startedAt).getTime();
-    return fetch(`${config.GEOTYPE_SUPABASE_URL}/rest/v1/submissions`, { method: "POST", headers: { apikey: config.GEOTYPE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${config.GEOTYPE_SUPABASE_PUBLISHABLE_KEY}`, "content-type": "application/json", prefer: "return=minimal" }, body: JSON.stringify({ session_id: payload.sessionId, started_at: payload.startedAt, completed_at: payload.completedAt, answers: payload.answers, question_times: payload.questionTimesMs, result_code: payload.resultCode, axis_scores: payload.axisScores, total_duration_ms: Math.max(0, completed - started), user_agent: navigator.userAgent }) });
+    const response = await fetch(`${config.GEOTYPE_SUPABASE_URL}/rest/v1/submissions`, { method: "POST", headers: { apikey: config.GEOTYPE_SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${config.GEOTYPE_SUPABASE_PUBLISHABLE_KEY}`, "content-type": "application/json", prefer: "return=minimal" }, body: JSON.stringify({ session_id: payload.sessionId, started_at: payload.startedAt, completed_at: payload.completedAt, answers: payload.answers, question_times: payload.questionTimesMs, result_code: payload.resultCode, axis_scores: payload.axisScores, total_duration_ms: Math.max(0, completed - started), user_agent: navigator.userAgent }), keepalive: true });
+    if (!response.ok && response.status !== 409) throw new Error(`Submission failed: ${response.status}`);
+    return response;
   }
-  return fetch(config.GEOTYPE_SUBMISSION_ENDPOINT || "/api/submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  const response = await fetch(config.GEOTYPE_SUBMISSION_ENDPOINT || "/api/submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload), keepalive: true });
+  if (!response.ok) throw new Error(`Submission failed: ${response.status}`);
+  return response;
+}
+function persistResponse(payload: SubmissionPayload) {
+  try { localStorage.setItem(PENDING_SUBMISSION_KEY, JSON.stringify(payload)); } catch {}
+  void submitResponse(payload).then(() => { try { const queued = localStorage.getItem(PENDING_SUBMISSION_KEY); if (queued && JSON.parse(queued).sessionId === payload.sessionId) localStorage.removeItem(PENDING_SUBMISSION_KEY); } catch {} }).catch(() => {});
 }
 
 export default function Home() {
@@ -57,12 +66,12 @@ export default function Home() {
   const [index, setIndex] = useState(0); const [answers, setAnswers] = useState<Record<number, number>>({}); const [times, setTimes] = useState<Record<number, number>>({});
   const [selectedType, setSelectedType] = useState<GeoType | null>(null);
   const enteredAt = useRef(Date.now()); const startedAt = useRef(new Date().toISOString()); const sessionId = useRef("");
-  useEffect(() => { sessionId.current ||= crypto.randomUUID(); }, []); useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [screen, index]);
+  useEffect(() => { sessionId.current ||= crypto.randomUUID(); try { const queued = localStorage.getItem(PENDING_SUBMISSION_KEY); if (queued) persistResponse(JSON.parse(queued)); } catch { localStorage.removeItem(PENDING_SUBMISSION_KEY); } }, []); useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, [screen, index]);
   useEffect(() => { if (!selectedType) return; const close = (event: KeyboardEvent) => { if (event.key === "Escape") setSelectedType(null); }; document.body.style.overflow = "hidden"; window.addEventListener("keydown", close); return () => { document.body.style.overflow = ""; window.removeEventListener("keydown", close); }; }, [selectedType]);
   const axisScores = useMemo(() => calculateScores(answers), [answers]); const match = useMemo(() => getMatch(axisScores), [axisScores]); const current = questions[index];
   function startQuiz() { startedAt.current = new Date().toISOString(); sessionId.current = crypto.randomUUID(); enteredAt.current = Date.now(); setAnswers({}); setTimes({}); setIndex(0); setScreen("quiz"); }
   function captureTime(questionId: number) { setTimes((previous) => ({ ...previous, [questionId]: (previous[questionId] || 0) + Date.now() - enteredAt.current })); enteredAt.current = Date.now(); }
-  function next() { if (answers[current.id] === undefined) return; const finalTimes = { ...times, [current.id]: (times[current.id] || 0) + Date.now() - enteredAt.current }; setTimes(finalTimes); enteredAt.current = Date.now(); if (index < questions.length - 1) return setIndex((value) => value + 1); setScreen("result"); submitResponse({ sessionId: sessionId.current, startedAt: startedAt.current, completedAt: new Date().toISOString(), answers, questionTimesMs: finalTimes, resultCode: match.primary.id, axisScores }).catch(() => {}); }
+  function next() { if (answers[current.id] === undefined) return; const finalTimes = { ...times, [current.id]: (times[current.id] || 0) + Date.now() - enteredAt.current }; setTimes(finalTimes); enteredAt.current = Date.now(); if (index < questions.length - 1) return setIndex((value) => value + 1); setScreen("result"); persistResponse({ sessionId: sessionId.current, startedAt: startedAt.current, completedAt: new Date().toISOString(), answers, questionTimesMs: finalTimes, resultCode: match.primary.id, axisScores }); }
   function previous() { if (index === 0) return setScreen("home"); captureTime(current.id); setIndex((value) => value - 1); }
 
   return <main>
