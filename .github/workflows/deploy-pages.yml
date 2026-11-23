@@ -1,48 +1,36 @@
 name: Deploy GEO-TYPE to GitHub Pages
-
 on:
   push:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-      - name: Restore artwork from repository chunks
-        shell: bash
+      - run: node v2/test-model.js
+      - run: node --check v2/app.js
+      - name: Package static experience
         run: |
-          cat public-chunks/geotype-ensemble.part*.bin > public/geotype-ensemble.png
-          cat public-chunks/geotype-portraits.part*.bin > public/geotype-portraits.png
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build:github
-        env:
-          VITE_SUPABASE_URL: https://twxdkztihnwjvcbtycyh.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ZOu8LcSVM6hdX8POlnr4zQ_fIF4V8vb
+          mkdir -p github-dist
+          cp v2/index.html v2/style.css v2/model.js v2/app.js github-dist/
+          cp public/geotype-portraits-v2.webp github-dist/
       - uses: actions/configure-pages@v5
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: github-dist
-
   deploy:
     environment:
       name: github-pages
